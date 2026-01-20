@@ -27,6 +27,7 @@ RUN apt-get update && \
         tzdata \
         chromium chromium-driver \
         dbus dbus-x11 \
+        xvfb \
         libglib2.0-0 libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 \
         libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
         libxfixes3 libxrandr2 libgbm1 libasound2 libpango-1.0-0 \
@@ -58,5 +59,6 @@ EXPOSE 7860
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:7860/admin/health || exit 1
 
-# 启动服务
-CMD ["python", "-u", "main.py"]
+# 启动服务（使用 xvfb-run 提供虚拟显示器，支持有头模式浏览器）
+CMD ["xvfb-run", "--auto-servernum", "--server-args=-screen 0 1280x800x24", "python", "-u", "main.py"]
+

@@ -120,15 +120,6 @@ class RegisterService(BaseTaskService[RegisterTask]):
         browser_engine = (config.basic.browser_engine or "dp").lower()
         headless = config.basic.browser_headless
 
-        # Linux 环境强制使用 DP 无头模式（无图形界面无法运行有头模式）
-        import sys
-        is_linux = sys.platform.startswith("linux")
-        if is_linux:
-            if browser_engine != "dp" or not headless:
-                log_cb("warning", "Linux environment: forcing DP engine with headless mode")
-                browser_engine = "dp"
-                headless = True
-
         if browser_engine == "dp":
             # DrissionPage 引擎：支持有头和无头模式
             automation = GeminiAutomation(
