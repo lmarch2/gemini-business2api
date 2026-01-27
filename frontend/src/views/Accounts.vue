@@ -130,6 +130,22 @@
             >
               任务状态
             </button>
+            <button
+              type="button"
+              class="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm text-foreground transition-colors
+                     hover:bg-accent"
+              @click="triggerImportFile(); closeMoreActions()"
+            >
+              导入文件
+            </button>
+            <button
+              type="button"
+              class="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm text-foreground transition-colors
+                     hover:bg-accent"
+              @click="openExportModal(); closeMoreActions()"
+            >
+              导出账户
+            </button>
             <div class="my-1 border-t border-border/60"></div>
             <button
               type="button"
@@ -193,13 +209,20 @@
             <button
               type="button"
               class="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm transition-colors"
-              :class="!selectedCount
+              :class="!selectedCount || isBulkOperating
                 ? 'cursor-not-allowed text-muted-foreground'
                 : 'text-destructive hover:bg-destructive/10'"
-              :disabled="!selectedCount"
+              :disabled="!selectedCount || isBulkOperating"
               @click="handleBulkDelete(); closeMoreActions()"
             >
-              批量删除
+              <span v-if="isBulkOperating" class="flex items-center gap-2">
+                <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                处理中...
+              </span>
+              <span v-else>批量删除</span>
             </button>
           </div>
         </div>
@@ -522,6 +545,17 @@
 
           <div v-else class="space-y-4">
             <label class="block text-xs text-muted-foreground">批量导入（每行一个）</label>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors
+                       hover:border-primary hover:text-primary"
+                @click="triggerImportFile"
+              >
+                上传文件
+              </button>
+              <span v-if="importFileName" class="text-xs text-muted-foreground">{{ importFileName }}</span>
+            </div>
             <textarea
               v-model="importText"
               class="min-h-[140px] w-full rounded-2xl border border-input bg-background px-3 py-2 text-xs font-mono"
@@ -842,6 +876,95 @@
       </div>
     </div>
   </Teleport>
+  <Teleport to="body">
+    <div v-if="isExportOpen" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 px-4">
+      <div class="flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
+        <div class="flex items-center justify-between border-b border-border/60 px-6 py-4">
+          <div>
+            <p class="text-sm font-medium text-foreground">导出账号配置</p>
+            <p class="mt-1 text-xs text-muted-foreground">选择导出范围与格式</p>
+          </div>
+          <button
+            class="text-xs text-muted-foreground transition-colors hover:text-foreground"
+            @click="closeExportModal"
+          >
+            关闭
+          </button>
+        </div>
+        <div class="scrollbar-slim flex-1 overflow-y-auto px-6 py-4">
+          <div class="space-y-4 text-sm">
+            <div class="flex rounded-full border border-border bg-muted/30 p-1 text-xs">
+              <button
+                type="button"
+                class="flex-1 rounded-full px-3 py-2 font-medium transition-colors"
+                :class="exportScope === 'all' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'"
+                @click="exportScope = 'all'"
+              >
+                全部
+              </button>
+              <button
+                type="button"
+                class="flex-1 rounded-full px-3 py-2 font-medium transition-colors"
+                :class="exportScope === 'selected' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'"
+                :disabled="!selectedCount"
+                @click="exportScope = 'selected'"
+              >
+                选中
+              </button>
+            </div>
+
+            <div class="flex rounded-full border border-border bg-muted/30 p-1 text-xs">
+              <button
+                type="button"
+                class="flex-1 rounded-full px-3 py-2 font-medium transition-colors"
+                :class="exportFormat === 'json' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'"
+                @click="exportFormat = 'json'"
+              >
+                JSON
+              </button>
+              <button
+                type="button"
+                class="flex-1 rounded-full px-3 py-2 font-medium transition-colors"
+                :class="exportFormat === 'txt' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'"
+                @click="exportFormat = 'txt'"
+              >
+                TXT
+              </button>
+            </div>
+            <p class="text-xs text-muted-foreground">
+              选中导出仅包含当前已勾选账号（{{ selectedCount }} 个）。
+            </p>
+          </div>
+        </div>
+        <div class="border-t border-border/60 px-6 py-4">
+          <div class="flex items-center justify-end gap-2">
+            <button
+              class="rounded-full border border-border px-4 py-2 text-sm text-muted-foreground transition-colors
+                     hover:border-primary hover:text-primary"
+              @click="closeExportModal"
+            >
+              取消
+            </button>
+            <button
+              class="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity
+                     hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="exportScope === 'selected' && !selectedCount"
+              @click="runExport"
+            >
+              开始导出
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+  <input
+    ref="importFileInput"
+    type="file"
+    class="hidden"
+    accept=".txt,.json,application/json,text/plain"
+    @change="handleImportFile"
+  />
 </template>
 
 <script setup lang="ts">
@@ -882,6 +1005,11 @@ const addMode = ref<'register' | 'import'>('register')
 const importText = ref('')
 const importError = ref('')
 const isImporting = ref(false)
+const importFileInput = ref<HTMLInputElement | null>(null)
+const importFileName = ref('')
+const isExportOpen = ref(false)
+const exportScope = ref<'all' | 'selected'>('all')
+const exportFormat = ref<'json' | 'txt'>('json')
 const isTaskOpen = ref(false)
 const showMoreActions = ref(false)
 const moreActionsRef = ref<HTMLDivElement | null>(null)
@@ -1144,7 +1272,18 @@ const openRegisterModal = () => {
   importText.value = ''
   importError.value = ''
   isImporting.value = false
+  importFileName.value = ''
   registerAgreed.value = false
+}
+
+const openExportModal = (format: 'json' | 'txt' = 'json') => {
+  exportFormat.value = format
+  exportScope.value = 'all'
+  isExportOpen.value = true
+}
+
+const closeExportModal = () => {
+  isExportOpen.value = false
 }
 
 const closeRegisterModal = () => {
@@ -1223,9 +1362,9 @@ const parseImportLines = (raw: string) => {
       return
     }
 
-        if (parts[0].toLowerCase() === 'gptmail') {
+    if (parts[0].toLowerCase() === 'gptmail') {
       if (parts.length < 2 || !parts[1]) {
-        errors.push(`? ${lineNo} ??????gptmail?`)
+        errors.push(`第 ${lineNo} 行格式错误（gptmail）`)
         return
       }
       const email = parts[1]
@@ -1242,7 +1381,7 @@ const parseImportLines = (raw: string) => {
       return
     }
 
-if (parts.length >= 4 && parts[0] && parts[2] && parts[3]) {
+    if (parts.length >= 4 && parts[0] && parts[2] && parts[3]) {
       const email = parts[0]
       const password = parts[1] || ''
       const clientId = parts[2]
@@ -1267,6 +1406,42 @@ if (parts.length >= 4 && parts[0] && parts[2] && parts[3]) {
   })
 
   return { items, errors }
+}
+
+const triggerImportFile = () => {
+  importFileInput.value?.click()
+}
+
+const handleImportFile = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+  importError.value = ''
+  importFileName.value = file.name
+
+  try {
+    const content = await file.text()
+    if (file.name.toLowerCase().endsWith('.json') || file.type.includes('json')) {
+      const parsed = JSON.parse(content)
+      const list = Array.isArray(parsed) ? parsed : parsed?.accounts
+      if (!Array.isArray(list)) {
+        importError.value = 'JSON 格式错误：需要数组或包含 accounts 字段'
+        return
+      }
+      await accountsStore.updateConfig(list)
+      selectedIds.value = new Set(list.map((item: any) => item.id).filter(Boolean))
+      toast.success(`导入 ${list.length} 条账号配置`)
+      closeRegisterModal()
+      return
+    }
+
+    importText.value = content
+    await handleImport()
+  } catch (error: any) {
+    importError.value = error.message || '文件解析失败'
+  } finally {
+    target.value = ''
+  }
 }
 
 const handleImport = async () => {
@@ -1346,6 +1521,72 @@ const handleImport = async () => {
   } finally {
     isImporting.value = false
   }
+}
+
+const exportConfig = async (format: 'json' | 'txt', scope: 'all' | 'selected' = 'all') => {
+  try {
+    const response = await accountsApi.getConfig()
+    let list = Array.isArray(response.accounts) ? response.accounts : []
+    if (scope === 'selected') {
+      const selected = selectedIds.value
+      list = list.filter((item) => selected.has(item.id))
+    }
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+
+    if (format === 'json') {
+      const payload = JSON.stringify(list, null, 2)
+      downloadText(payload, `accounts-${timestamp}.json`, 'application/json')
+      toast.success('导出 JSON 成功')
+      return
+    }
+
+    const lines = list.map((item) => {
+      const provider = (item.mail_provider || '').toLowerCase()
+      const email = item.mail_address || item.id || ''
+      if (!email) return ''
+      if (provider === 'moemail') {
+        return `moemail----${email}----${item.mail_password || ''}`
+      }
+      if (provider === 'freemail') {
+        return `freemail----${email}`
+      }
+      if (provider === 'gptmail') {
+        return `gptmail----${email}`
+      }
+      if (provider === 'duckmail') {
+        return `duckmail----${email}----${item.mail_password || ''}`
+      }
+      if (provider === 'microsoft' || item.mail_client_id || item.mail_refresh_token) {
+        return `${email}----${item.mail_password || ''}----${item.mail_client_id || ''}----${item.mail_refresh_token || ''}`
+      }
+      if (item.mail_password) {
+        return `duckmail----${email}----${item.mail_password}`
+      }
+      return email
+    }).filter(Boolean)
+
+    downloadText(lines.join('\n'), `accounts-${timestamp}.txt`, 'text/plain')
+    toast.success('导出 TXT 成功')
+  } catch (error: any) {
+    toast.error(error.message || '导出失败')
+  }
+}
+
+const runExport = async () => {
+  await exportConfig(exportFormat.value, exportScope.value)
+  closeExportModal()
+}
+
+const downloadText = (content: string, filename: string, mime: string) => {
+  const blob = new Blob([content], { type: mime })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
 
 const refreshTaskSnapshot = async () => {
@@ -1822,18 +2063,22 @@ const handleBulkDisable = async () => {
 }
 
 const handleBulkDelete = async () => {
+  if (isBulkOperating.value) return
   const confirmed = await confirmDialog.ask({
     title: '批量删除',
     message: '确定要批量删除选中的账号吗？',
     confirmText: '删除',
   })
   if (!confirmed) return
+  isBulkOperating.value = true
   try {
     await accountsStore.bulkDelete(Array.from(selectedIds.value))
     toast.success('批量删除成功')
     selectedIds.value = new Set()
   } catch (error: any) {
     toast.error(error.message || '批量删除失败')
+  } finally {
+    isBulkOperating.value = false
   }
 }
 

@@ -820,3 +820,49 @@ def bulk_update_account_disabled_status(
     status_text = "已禁用" if disabled else "已启用"
     logger.info(f"[CONFIG] 批量{status_text} {success_count}/{len(account_ids)} 个账户")
     return success_count, errors
+
+
+def bulk_delete_accounts(
+    account_ids: list[str],
+    multi_account_mgr: MultiAccountManager,
+    http_client,
+    user_agent: str,
+    account_failure_threshold: int,
+    rate_limit_cooldown_seconds: int,
+    session_cache_ttl_seconds: int,
+    global_stats: dict
+) -> tuple[MultiAccountManager, int, list[str]]:
+    """批量删除账户，单次最多50个，仅读写一次文件"""
+    errors = []
+    account_id_set = set(account_ids)
+
+    accounts_data = load_accounts_from_source()
+    kept: list[dict] = []
+    deleted_ids: list[str] = []
+
+    for i, acc in enumerate(accounts_data, 1):
+        acc_id = get_account_id(acc, i)
+        if acc_id in account_id_set:
+            deleted_ids.append(acc_id)
+            continue
+        kept.append(acc)
+
+    missing = account_id_set.difference(deleted_ids)
+    for account_id in missing:
+        errors.append(f"{account_id}: 账户不存在")
+
+    if deleted_ids:
+        save_accounts_to_file(kept)
+        multi_account_mgr = reload_accounts(
+            multi_account_mgr,
+            http_client,
+            user_agent,
+            account_failure_threshold,
+            rate_limit_cooldown_seconds,
+            session_cache_ttl_seconds,
+            global_stats
+        )
+
+    success_count = len(deleted_ids)
+    logger.info(f"[CONFIG] 批量删除 {success_count}/{len(account_ids)} 个账户")
+    return multi_account_mgr, success_count, errors

@@ -67,7 +67,8 @@ from core.account import (
     update_accounts_config as _update_accounts_config,
     delete_account as _delete_account,
     update_account_disabled_status as _update_account_disabled_status,
-    bulk_update_account_disabled_status as _bulk_update_account_disabled_status
+    bulk_update_account_disabled_status as _bulk_update_account_disabled_status,
+    bulk_delete_accounts as _bulk_delete_accounts
 )
 
 # 导入 Uptime 追踪器
@@ -1275,6 +1276,27 @@ async def admin_delete_account(request: Request, account_id: str):
         return {"status": "success", "message": f"账户 {account_id} 已删除", "account_count": len(multi_account_mgr.accounts)}
     except Exception as e:
         logger.error(f"[CONFIG] 删除账户失败: {str(e)}")
+        raise HTTPException(500, f"删除失败: {str(e)}")
+
+@app.put("/admin/accounts/bulk-delete")
+@require_login()
+async def admin_bulk_delete_accounts(request: Request, account_ids: list[str]):
+    """批量删除账户，单次最多50个"""
+    global multi_account_mgr
+    try:
+        multi_account_mgr, success_count, errors = _bulk_delete_accounts(
+            account_ids,
+            multi_account_mgr,
+            http_client,
+            USER_AGENT,
+            ACCOUNT_FAILURE_THRESHOLD,
+            RATE_LIMIT_COOLDOWN_SECONDS,
+            SESSION_CACHE_TTL_SECONDS,
+            global_stats
+        )
+        return {"status": "success", "success_count": success_count, "errors": errors}
+    except Exception as e:
+        logger.error(f"[CONFIG] 批量删除账户失败: {str(e)}")
         raise HTTPException(500, f"删除失败: {str(e)}")
 
 @app.put("/admin/accounts/{account_id}/disable")
